@@ -226,29 +226,50 @@
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  // 1. Importar las funciones necesarias (Asegúrate de usar la misma versión 12.16.0)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
+  
+  // ¡NUEVO! Importamos Firestore para poder usar la base de datos
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
-    // Variables globales configuradas por el entorno o por defecto para pruebas
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'novasol-solutions-caja';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' 
-        ? JSON.parse(__firebase_config) 
-        : {
-            apiKey: "a605cmy2j2-E-TiFBWlikQzHOKTxviDDxlVEWgsIOcE",
-            authDomain: "demo-novasol.firebaseapp.com",
-            projectId: "demo-novasol",
-            storageBucket: "demo-novasol.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:1234:web:abcd"
-        };
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+  // Configuración de tu Web App
+  const firebaseConfig = {
+    apiKey: "AIzaSyAxSpw5tttsGcwcs3A3d_Fe4KkpTd7Nv8Y",
+    authDomain: "flujo-efectivo-fd434.firebaseapp.com",
+    projectId: "flujo-efectivo-fd434",
+    storageBucket: "flujo-efectivo-fd434.firebasestorage.app",
+    messagingSenderId: "728172767565",
+    appId: "1:728172767565:web:ce25ead09c382735b06f04",
+    measurementId: "G-PRGSQEHJZZ"
+  };
 
-    // Inicialización del ecosistema
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+  // 2. Inicializar Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
 
+  // ¡NUEVO! Inicializar Firestore y guardarlo en la constante 'db'
+  const db = getFirestore(app);
+
+  console.log("¡Conexión inicializada con éxito!");
+
+// --- EJEMPLO RÁPIDO PARA PROBAR TU CONEXIÓN ---
+  // Esta función creará un documento de prueba en tu base de datos
+  async function probarConexion() {
+    try {
+      const pruebaRef = doc(db, "pruebas", "test-conexion");
+      await setDoc(pruebaRef, {
+        mensaje: "¡Conexión exitosa desde el código!",
+        fecha: new Date().toString()
+      });
+      console.log("¡Prueba de escritura exitosa! Revisa tu consola de Firebase Firestore.");
+    } catch (error) {
+      console.error("Error al conectar o escribir en Firestore:", error);
+    }
+  }
+
+  // Ejecutar la prueba
+  probarConexion();
     // Estado local de la aplicación
     let transacciones = [];
     let currentUser = null;
