@@ -236,6 +236,21 @@
   // ¡NUEVO! Importamos la base de datos
 import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
+// 1. Tus importaciones de Firebase...
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  // ... (el resto de tus imports)
+
+  // 2. ¡NUEVO! Declarar el appId aquí arriba para que todo tu código lo conozca:
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'novasol-solutions-caja';
+
+  // Y hacemos que sea accesible globalmente (por si tu formulario está fuera de este script)
+  window.appId = appId; 
+
+  // 3. Tu configuración de Firebase y el resto del código...
+  const firebaseConfig = {
+    apiKey: "AIzaSyAxSpw5tttsGcwcs3A3d_Fe4KkpTd7Nv8Y",
+    // ...
+
   // Tu configuración de Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyAxSpw5tttsGcwcs3A3d_Fe4KkpTd7Nv8Y",
