@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flujo de Caja - Novasol Solutions (Cloud)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        @media print {
+            body {
+                background-color: white;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .shadow-sm, .shadow-md, .shadow-lg {
+                box-shadow: none !important;
+            }
+            .print-border {
+                border: 1px solid #e5e7eb !important;
+            }
+            .print-container {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            th, td {
+                border-bottom: 1px solid #e5e7eb;
+            }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+<div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 no-print"></div>
+
+<div class="print-container max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+    
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b border-gray-200">
+        <div class="flex items-center gap-3 mb-4 md:mb-0">
+            <div class="bg-blue-600 text-white p-3 rounded-lg shadow-md">
+                <i class="fas fa-cloud text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Novasol Solutions</h1>
+                <p class="text-sm text-gray-500">Control de Flujo de Efectivo en la Nube</p>
+            </div>
+        </div>
+        
+        <!-- Estado de la base de datos para el usuario -->
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center no-print">
+            <div class="bg-white rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 shadow-sm text-xs">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <span id="status-text" class="font-medium text-gray-600">Conectando...</span>
+            </div>
+            
+            <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors flex items-center justify-center gap-2 font-medium text-sm">
+                <i class="fas fa-plus"></i> Nueva Transacción
+            </button>
+            <button onclick="window.print()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 font-medium text-sm">
+                <i class="fas fa-file-pdf text-red-500"></i> Generar PDF
+            </button>
+        </div>
+    </header>
+
+    <div id="user-identity-card" class="bg-blue-50 border border-blue-100 rounded-lg p-3.5 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 no-print">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-fingerprint text-blue-500 text-lg"></i>
+            <div>
+                <p class="text-xs text-blue-600 font-semibold uppercase tracking-wider">ID de Usuario de Base de Datos</p>
+                <p id="user-id-display" class="text-sm font-mono text-gray-700 select-all font-medium">Cargando...</p>
+            </div>
+        </div>
+        <button onclick="copyUserId()" class="text-xs bg-white text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded transition-colors font-medium flex items-center gap-1">
+            <i class="fas fa-copy"></i> Copiar ID
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Entradas -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-border">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-gray-500 font-medium">Total Entradas</h3>
+                <div class="bg-green-100 text-green-600 p-2 rounded-full">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+            </div>
+            <p class="text-3xl font-bold text-gray-900" id="total-entradas">$0.00</p>
+        </div>
+        
+        <!-- Salidas -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-border">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-gray-500 font-medium">Total Salidas</h3>
+                <div class="bg-red-100 text-red-600 p-2 rounded-full">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+            </div>
+            <p class="text-3xl font-bold text-gray-900" id="total-salidas">$0.00</p>
+        </div>
+
+        <!-- Saldo Actual -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 border-l-4 border-l-blue-500 print-border">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-gray-500 font-medium">Saldo Actual</h3>
+                <div class="bg-blue-100 text-blue-600 p-2 rounded-full">
+                    <i class="fas fa-wallet"></i>
+                </div>
+            </div>
+            <p class="text-3xl font-bold text-blue-600" id="saldo-actual">$0.00</p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden print-border">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h2 class="font-semibold text-gray-800">Historial de Movimientos (Nube)</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-white text-gray-600 font-medium border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-4">Fecha</th>
+                        <th class="px-6 py-4">Concepto / Detalle</th>
+                        <th class="px-6 py-4 text-right">Entrada</th>
+                        <th class="px-6 py-4 text-right">Salida</th>
+                        <th class="px-6 py-4 text-right">Saldo</th>
+                        <th class="px-6 py-4 text-center no-print">Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-body" class="divide-y divide-gray-100">
+                    <!-- Filas generadas por JS -->
+                </tbody>
+            </table>
+        </div>
+        <div id="empty-state" class="hidden text-center py-12 text-gray-500">
+            <i class="fas fa-cloud-upload-alt text-4xl mb-3 text-gray-300"></i>
+            <p>Conectando con la base de datos para recuperar tus registros...</p>
+        </div>
+    </div>
+
+</div>
+
+<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center p-4 no-print transition-opacity">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 class="font-semibold text-gray-800 text-lg" id="modal-titulo">Nueva Transacción</h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="transaccion-form" class="p-6">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                    <input type="date" id="form-fecha" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Movimiento</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="border border-gray-200 rounded-lg p-3 flex items-center cursor-pointer hover:bg-gray-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500 transition-colors">
+                            <input type="radio" name="tipo" value="entrada" checked class="mr-2 text-blue-600 focus:ring-blue-500">
+                            <span class="text-gray-700 font-medium">Entrada</span>
+                        </label>
+                        <label class="border border-gray-200 rounded-lg p-3 flex items-center cursor-pointer hover:bg-gray-50 has-[:checked]:bg-red-50 has-[:checked]:border-red-500 transition-colors">
+                            <input type="radio" name="tipo" value="salida" class="mr-2 text-red-600 focus:ring-red-500">
+                            <span class="text-gray-700 font-medium">Salida</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Concepto / Detalle</label>
+                    <input type="text" id="form-detalle" placeholder="Ej. Pago de Internet, Capital Inicial..." required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500">$</span>
+                        </div>
+                        <input type="number" id="form-monto" step="0.01" min="0.01" placeholder="0.00" required class="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
+                <button type="submit" id="btn-guardar" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium">Guardar Transacción</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center p-4 no-print">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
+        <div class="w-16 h-16 bg-red-100 text-red-600 flex items-center justify-center rounded-full mx-auto mb-4">
+            <i class="fas fa-exclamation-triangle text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-2">¿Eliminar registro?</h3>
+        <p class="text-sm text-gray-500 mb-6">Esta acción no se puede deshacer y el registro se borrará de forma permanente de la base de datos.</p>
+        <div class="flex gap-3 justify-center">
+            <button onclick="closeConfirmModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">Cancelar</button>
+            <button id="btn-confirm-delete" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Variables globales configuradas por el entorno o por defecto para pruebas
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'novasol-solutions-caja';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+        ? JSON.parse(__firebase_config) 
+        : {
+            apiKey: "a605cmy2j2-E-TiFBWlikQzHOKTxviDDxlVEWgsIOcE",
+            authDomain: "demo-novasol.firebaseapp.com",
+            projectId: "demo-novasol",
+            storageBucket: "demo-novasol.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:1234:web:abcd"
+        };
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // Inicialización del ecosistema
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Estado local de la aplicación
+    let transacciones = [];
+    let currentUser = null;
+    let unsubscribeSync = null;
+    let editingId = null;
+    let pendingDeleteId = null;
+
+    // Formato de Moneda y Fecha
+    const formatoMoneda = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+    });
+
+    const formatoFecha = (fechaStr) => {
+        const opciones = { year: 'numeric', month: 'short', day: 'numeric' };
+        const fecha = new Date(fechaStr + 'T12:00:00');
+        return fecha.toLocaleDateString('es-ES', opciones);
+    };
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        
+        let bgColor = 'bg-blue-600';
+        let icon = 'fa-info-circle';
+        if (type === 'success') {
+            bgColor = 'bg-green-600';
+            icon = 'fa-check-circle';
+        } else if (type === 'error') {
+            bgColor = 'bg-red-600';
+            icon = 'fa-exclamation-circle';
+        } else if (type === 'warning') {
+            bgColor = 'bg-amber-500';
+            icon = 'fa-exclamation-triangle';
+        }
+
+        toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm transition-all duration-300 transform translate-y-2 opacity-0 font-medium`;
+        toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+        
+        container.appendChild(toast);
+        
+        // Efecto fade-in
+        setTimeout(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        }, 10);
+
+        // Auto remoción
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 4000);
+    }
+
+    window.copyUserId = function() {
+        const text = document.getElementById('user-id-display').textContent;
+        const input = document.createElement('input');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showToast("¡ID de usuario copiado al portapapeles!", "success");
+    };
+
+    function renderizarApp() {
+        // Ordenar transacciones por fecha de manera cronológica ascendente
+        transacciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+        const tablaBody = document.getElementById('tabla-body');
+        const emptyState = document.getElementById('empty-state');
+        const totalEntradasEl = document.getElementById('total-entradas');
+        const totalSalidasEl = document.getElementById('total-salidas');
+        const saldoActualEl = document.getElementById('saldo-actual');
+
+        tablaBody.innerHTML = '';
+        let totalEntradas = 0;
+        let totalSalidas = 0;
+        let saldoAcumulado = 0;
+
+        if (transacciones.length === 0) {
+            emptyState.classList.remove('hidden');
+            emptyState.innerHTML = `
+                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+                <p>No hay registros guardados. ¡Agrega una nueva transacción para comenzar!</p>
+            `;
+        } else {
+            emptyState.classList.add('hidden');
+
+            transacciones.forEach((t) => {
+                if (t.tipo === 'entrada') {
+                    totalEntradas += t.monto;
+                    saldoAcumulado += t.monto;
+                } else {
+                    totalSalidas += t.monto;
+                    saldoAcumulado -= t.monto;
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors';
+                
+                const textoEntrada = t.tipo === 'entrada' ? `<span class="text-green-600 font-medium">${formatoMoneda.format(t.monto)}</span>` : '-';
+                const textoSalida = t.tipo === 'salida' ? `<span class="text-red-600 font-medium">${formatoMoneda.format(t.monto)}</span>` : '-';
+                const colorSaldo = saldoAcumulado >= 0 ? 'text-gray-900' : 'text-red-600';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 text-gray-500">${formatoFecha(t.fecha)}</td>
+                    <td class="px-6 py-4 font-medium text-gray-800">${t.detalle}</td>
+                    <td class="px-6 py-4 text-right">${textoEntrada}</td>
+                    <td class="px-6 py-4 text-right">${textoSalida}</td>
+                    <td class="px-6 py-4 text-right font-bold ${colorSaldo}">${formatoMoneda.format(saldoAcumulado)}</td>
+                    <td class="px-6 py-4 text-center no-print">
+                        <div class="flex items-center justify-center gap-3">
+                            <button onclick="editarTransaccion('${t.id}')" class="text-gray-400 hover:text-blue-500 transition-colors" title="Editar registro">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="confirmarEliminar('${t.id}')" class="text-gray-400 hover:text-red-500 transition-colors" title="Eliminar registro">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tablaBody.appendChild(tr);
+            });
+        }
+
+        totalEntradasEl.textContent = formatoMoneda.format(totalEntradas);
+        totalSalidasEl.textContent = formatoMoneda.format(totalSalidas);
+        saldoActualEl.textContent = formatoMoneda.format(saldoAcumulado);
+        
+        if (saldoAcumulado < 0) {
+            saldoActualEl.classList.remove('text-blue-600');
+            saldoActualEl.classList.add('text-red-600');
+        } else {
+            saldoActualEl.classList.remove('text-red-600');
+            saldoActualEl.classList.add('text-blue-600');
+        }
+    }
+
+    function setupRealtimeSync(userId) {
+        // RULE 1: Siga estrictamente la ruta para datos privados
+        const colRef = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+        
+        // Desconectar cualquier suscripción anterior
+        if (unsubscribeSync) {
+            unsubscribeSync();
+        }
+
+        // RULE 2: No utilizar filtros compuestos (orderBy o where en la consulta de red). Sincronizar y filtrar en JS.
+        unsubscribeSync = onSnapshot(colRef, async (snapshot) => {
+            let items = [];
+            snapshot.forEach((doc) => {
+                items.push({ id: doc.id, ...doc.data() });
+            });
+
+            // Si es un usuario nuevo, migramos y poblamos por primera vez con los datos de las libretas de Novasol
+            if (items.length === 0) {
+                await poblarDatosIniciales(userId);
+                return; // El listener onSnapshot volverá a dispararse automáticamente
+            }
+
+            transacciones = items;
+            renderizarApp();
+            
+            // Actualizar interfaz del estado de conexión
+            document.getElementById('status-dot').className = "w-2.5 h-2.5 rounded-full bg-green-500";
+            document.getElementById('status-text').textContent = "Sincronizado";
+            document.getElementById('status-text').className = "font-medium text-green-600";
+        }, (error) => {
+            console.error("Error sincronizando base de datos: ", error);
+            showToast("Error de conexión con la base de datos.", "error");
+            document.getElementById('status-dot').className = "w-2.5 h-2.5 rounded-full bg-red-500";
+            document.getElementById('status-text').textContent = "Sin Conexión";
+            document.getElementById('status-text').className = "font-medium text-red-600";
+        });
+    }
+
+    async function poblarDatosIniciales(userId) {
+        showToast("Inicializando base de datos en la nube...", "warning");
+        const colRef = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+        
+        // Datos extraídos de estado cuenta 1.pdf y estado cuenta 2.pdf
+        const defaultData = [
+            { fecha: '2026-05-23', tipo: 'entrada', monto: 1000.00, detalle: 'Capital Inicial' },
+            { fecha: '2026-05-27', tipo: 'salida', monto: 152.79, detalle: 'Herramientas - Tarjeta' },
+            { fecha: '2026-06-07', tipo: 'salida', monto: 63.36, detalle: 'Hidro Lavadora' },
+            { fecha: '2026-06-11', tipo: 'salida', monto: 120.00, detalle: 'Host. Web' },
+            { fecha: '2026-06-12', tipo: 'salida', monto: 50.00, detalle: 'Abono local' },
+            { fecha: '2026-06-17', tipo: 'salida', monto: 35.00, detalle: 'Abono Uniforme' },
+            { fecha: '2026-06-18', tipo: 'salida', monto: 24.25, detalle: 'Cancela Uniforme' },
+            { fecha: '2026-06-20', tipo: 'salida', monto: 33.00, detalle: 'Baner' },
+            { fecha: '2026-06-21', tipo: 'salida', monto: 8.10, detalle: 'Viatico Combustible (Técnico)' },
+            { fecha: '2026-06-27', tipo: 'salida', monto: 45.50, detalle: 'Panel Solar 100W' },
+            { fecha: '2026-07-01', tipo: 'salida', monto: 4.85, detalle: 'Elaboración Tarjetas' },
+            { fecha: '2026-07-02', tipo: 'salida', monto: 8.60, detalle: 'Elaboración Calcomanás' },
+            { fecha: '2026-07-08', tipo: 'salida', monto: 19.00, detalle: 'Sello Automatico (Cancelado)' },
+            { fecha: '2026-07-08', tipo: 'salida', monto: 39.00, detalle: 'Elaboración de facturas 200 unidades' },
+            { fecha: '2026-07-16', tipo: 'salida', monto: 13.50, detalle: 'Pago impuesto DGI mes de Junio' },
+            { fecha: '2026-07-17', tipo: 'salida', monto: 2.50, detalle: 'Recarga claro (57393200)' }
+        ];
+
+        try {
+            for (const item of defaultData) {
+                // Generar un ID único de documento autogenerado en la subcolección
+                const docRef = doc(colRef);
+                await setDoc(docRef, item);
+            }
+            showToast("¡Base de datos lista con tus apuntes!", "success");
+        } catch (err) {
+            console.error("Error poblando datos iniciales: ", err);
+            showToast("Error configurando tu espacio de trabajo.", "error");
+        }
+    }
+
+    async function iniciarAutenticacion() {
+        try {
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+        } catch (error) {
+            console.error("Error en flujo de autenticación: ", error);
+            showToast("No se pudo iniciar sesión en la base de datos.", "error");
+        }
+    }
+
+    // Suscribirse a cambios en el estado de autenticación
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('user-id-display').textContent = user.uid;
+            showToast("Sesión iniciada de forma segura", "success");
+            setupRealtimeSync(user.uid);
+        } else {
+            currentUser = null;
+            document.getElementById('user-id-display').textContent = "No autenticado";
+            if (unsubscribeSync) unsubscribeSync();
+        }
+    });
+
+    window.openModal = function() {
+        editingId = null;
+        document.getElementById('modal-titulo').textContent = 'Nueva Transacción';
+        document.getElementById('btn-guardar').textContent = 'Guardar Transacción';
+        document.getElementById('form-fecha').valueAsDate = new Date();
+        document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('form-detalle').focus();
+    };
+
+    window.closeModal = function() {
+        document.getElementById('modal').classList.add('hidden');
+        document.getElementById('transaccion-form').reset();
+        editingId = null;
+    };
+
+    window.editarTransaccion = function(id) {
+        const t = transacciones.find(item => item.id === id);
+        if (!t) return;
+        
+        editingId = id;
+        document.getElementById('modal-titulo').textContent = 'Editar Transacción';
+        document.getElementById('btn-guardar').textContent = 'Guardar Cambios';
+        
+        document.getElementById('form-fecha').value = t.fecha;
+        document.querySelector(`input[name="tipo"][value="${t.tipo}"]`).checked = true;
+        document.getElementById('form-detalle').value = t.detalle;
+        document.getElementById('form-monto').value = t.monto;
+        
+        document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('form-detalle').focus();
+    };
+
+    document.getElementById('transaccion-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // RULE 3: Guardar operaciones solo si el usuario está autenticado
+        if (!currentUser) {
+            showToast("Error: No estás autenticado con la base de datos.", "error");
+            return;
+        }
+
+        const fecha = document.getElementById('form-fecha').value;
+        const tipo = document.querySelector('input[name="tipo"]:checked').value;
+        const detalle = document.getElementById('form-detalle').value;
+        const monto = parseFloat(document.getElementById('form-monto').value);
+
+        if (!fecha || !detalle || isNaN(monto)) return;
+
+        // Deshabilitar botón durante el envío
+        const btn = document.getElementById('btn-guardar');
+        btn.disabled = true;
+        btn.textContent = "Procesando...";
+
+        const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
+
+        try {
+            if (editingId) {
+                // Actualizar documento existente
+                const docRef = doc(colRef, editingId);
+                await setDoc(docRef, { fecha, tipo, detalle, monto });
+                showToast("Transacción modificada con éxito", "success");
+            } else {
+                // Agregar un nuevo documento con ID autogenerado
+                const docRef = doc(colRef);
+                await setDoc(docRef, { fecha, tipo, detalle, monto });
+                showToast("Nueva transacción añadida", "success");
+            }
+            closeModal();
+        } catch (error) {
+            console.error("Error al persistir registro: ", error);
+            showToast("Error de conexión al guardar los datos.", "error");
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    window.confirmarEliminar = function(id) {
+        pendingDeleteId = id;
+        document.getElementById('confirm-modal').classList.remove('hidden');
+    };
+
+    window.closeConfirmModal = function() {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        pendingDeleteId = null;
+    };
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', async function() {
+        if (!pendingDeleteId || !currentUser) return;
+
+        const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
+        const docRef = doc(colRef, pendingDeleteId);
+
+        try {
+            await deleteDoc(docRef);
+            showToast("Registro eliminado con éxito", "success");
+        } catch (error) {
+            console.error("Error al eliminar documento: ", error);
+            showToast("No se pudo eliminar el registro de la nube.", "error");
+        } finally {
+            closeConfirmModal();
+        }
+    });
+
+    // Cerrar modales si se hace clic afuera del contenido
+    document.getElementById('modal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+    document.getElementById('confirm-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeConfirmModal();
+    });
+
+    // Iniciar el flujo completo en la carga inicial de la ventana
+    window.onload = function() {
+        iniciarAutenticacion();
+    };
+</script>
+</body>
+</html>
