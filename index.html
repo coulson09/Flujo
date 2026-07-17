@@ -226,14 +226,17 @@
 </div>
 
 <script type="module">
-  // 1. Importar las funciones necesarias (Asegúrate de usar la misma versión 12.16.0)
+  // 1. IMPORTACIONES COMPLETAS (Añadimos Auth y Firestore en su versión 12.16.0)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
   
-  // ¡NUEVO! Importamos Firestore para poder usar la base de datos
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+  // ¡NUEVO! Importamos la autenticación (arregla el error de onAuthStateChanged)
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+  
+  // ¡NUEVO! Importamos la base de datos
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
-  // Configuración de tu Web App
+  // Tu configuración de Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyAxSpw5tttsGcwcs3A3d_Fe4KkpTd7Nv8Y",
     authDomain: "flujo-efectivo-fd434.firebaseapp.com",
@@ -244,29 +247,50 @@
     measurementId: "G-PRGSQEHJZZ"
   };
 
-  // 2. Inicializar Firebase
+  // 2. INICIALIZACIÓN DE SERVICIOS
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
-
-  // ¡NUEVO! Inicializar Firestore y guardarlo en la constante 'db'
+  
+  // Inicializamos las constantes para Auth y DB
+  const auth = getAuth(app);
   const db = getFirestore(app);
 
-  console.log("¡Conexión inicializada con éxito!");
+  // 3. CONTROL DE USUARIO (onAuthStateChanged)
+  // Ahora sí funcionará porque ya está importado arriba
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log("Usuario autenticado con ID:", user.uid);
+      probarConexion(user.uid); // Intentamos guardar algo con su ID
+    } else {
+      console.log("No hay usuario activo. Iniciando sesión anónima...");
+      signInAnonymously(auth).catch(error => console.error("Error en Auth:", error));
+    }
+  });
 
-// --- EJEMPLO RÁPIDO PARA PROBAR TU CONEXIÓN ---
-  // Esta función creará un documento de prueba en tu base de datos
-  async function probarConexion() {
+  // Función para testear la base de datos
+  async function probarConexion(uid) {
     try {
-      const pruebaRef = doc(db, "pruebas", "test-conexion");
+      const pruebaRef = doc(db, "usuarios", uid);
       await setDoc(pruebaRef, {
-        mensaje: "¡Conexión exitosa desde el código!",
-        fecha: new Date().toString()
-      });
-      console.log("¡Prueba de escritura exitosa! Revisa tu consola de Firebase Firestore.");
+        mensaje: "¡Conexión y Autenticación exitosas!",
+        actualizadoEl: new Date().toString()
+      }, { merge: true });
+      console.log("¡Conexión exitosa! El ID del usuario se vinculó correctamente en Firestore.");
     } catch (error) {
-      console.error("Error al conectar o escribir en Firestore:", error);
+      console.error("Error al escribir en la base de datos:", error);
     }
   }
+
+  // 4. SOLUCIÓN AL ERROR DEL MODAL ('openModal is not defined')
+  // Definimos la función que abre tu modal aquí adentro
+  function openModal() {
+    console.log("Abriendo el modal...");
+    // Coloca aquí adentro el código original que tenías para abrir tu modal, por ejemplo:
+    // document.getElementById('tu-id-de-modal').classList.remove('hidden');
+  }
+
+  // ¡La magia! Al hacer esto, tu botón HTML con onclick="openModal()" ya podrá encontrar la función
+  window.openModal = openModal;
 
   // Ejecutar la prueba
   probarConexion();
