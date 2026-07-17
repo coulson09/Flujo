@@ -65,7 +65,6 @@
             </div>
         </div>
         
-        <!-- Estado de la base de datos para el usuario -->
         <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center no-print">
             <div class="bg-white rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 shadow-sm text-xs">
                 <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -95,7 +94,6 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Entradas -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-border">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-gray-500 font-medium">Total Entradas</h3>
@@ -106,7 +104,6 @@
             <p class="text-3xl font-bold text-gray-900" id="total-entradas">$0.00</p>
         </div>
         
-        <!-- Salidas -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print-border">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-gray-500 font-medium">Total Salidas</h3>
@@ -117,7 +114,6 @@
             <p class="text-3xl font-bold text-gray-900" id="total-salidas">$0.00</p>
         </div>
 
-        <!-- Saldo Actual -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 border-l-4 border-l-blue-500 print-border">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-gray-500 font-medium">Saldo Actual</h3>
@@ -146,7 +142,6 @@
                     </tr>
                 </thead>
                 <tbody id="tabla-body" class="divide-y divide-gray-100">
-                    <!-- Filas generadas por JS -->
                 </tbody>
             </table>
         </div>
@@ -155,7 +150,6 @@
             <p>Conectando con la base de datos para recuperar tus registros...</p>
         </div>
     </div>
-
 </div>
 
 <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center p-4 no-print transition-opacity">
@@ -225,19 +219,21 @@
     </div>
 </div>
 
+<!-- ¡NUEVO! Declaraciones Globales de Variables -->
+<script>
+    window.appId = 'novasol-solutions-caja';
+    var appId = window.appId;
+    var initialAuthToken = null;
+</script>
+
 <script type="module">
-  // 1. IMPORTACIONES COMPLETAS (Añadimos Auth y Firestore en su versión 12.16.0)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
-  
-  // ¡NUEVO! Importamos la autenticación (arregla el error de onAuthStateChanged)
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
   
-  // ¡NUEVO! Importamos la base de datos
-import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+  // ¡NUEVO! Agregamos onSnapshot y deleteDoc a las importaciones
+  import { getFirestore, doc, setDoc, collection, addDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
-
-  // Tu configuración de Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyAxSpw5tttsGcwcs3A3d_Fe4KkpTd7Nv8Y",
     authDomain: "flujo-efectivo-fd434.firebaseapp.com",
@@ -248,27 +244,29 @@ import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstat
     measurementId: "G-PRGSQEHJZZ"
   };
 
-  // 2. INICIALIZACIÓN DE SERVICIOS
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
   
-  // Inicializamos las constantes para Auth y DB
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // 3. CONTROL DE USUARIO (onAuthStateChanged)
-  // Ahora sí funcionará porque ya está importado arriba
   onAuthStateChanged(auth, (user) => {
     if (user) {
       console.log("Usuario autenticado con ID:", user.uid);
-      probarConexion(user.uid); // Intentamos guardar algo con su ID
+      currentUser = user;
+      document.getElementById('user-id-display').textContent = user.uid;
+      showToast("Sesión iniciada de forma segura", "success");
+      setupRealtimeSync(user.uid);
+      probarConexion(user.uid); 
     } else {
       console.log("No hay usuario activo. Iniciando sesión anónima...");
+      currentUser = null;
+      document.getElementById('user-id-display').textContent = "No autenticado";
+      if (unsubscribeSync) unsubscribeSync();
       signInAnonymously(auth).catch(error => console.error("Error en Auth:", error));
     }
   });
 
-  // Función para testear la base de datos
   async function probarConexion(uid) {
     try {
       const pruebaRef = doc(db, "usuarios", uid);
@@ -282,377 +280,334 @@ import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstat
     }
   }
 
-  // 4. SOLUCIÓN AL ERROR DEL MODAL ('openModal is not defined')
-  // Definimos la función que abre tu modal aquí adentro
   function openModal() {
-    console.log("Abriendo el modal...");
-    // Coloca aquí adentro el código original que tenías para abrir tu modal, por ejemplo:
-    // document.getElementById('tu-id-de-modal').classList.remove('hidden');
+    editingId = null;
+    document.getElementById('modal-titulo').textContent = 'Nueva Transacción';
+    document.getElementById('btn-guardar').textContent = 'Guardar Transacción';
+    document.getElementById('form-fecha').valueAsDate = new Date();
+    document.getElementById('modal').classList.remove('hidden');
+    document.getElementById('form-detalle').focus();
   }
 
-  // ¡La magia! Al hacer esto, tu botón HTML con onclick="openModal()" ya podrá encontrar la función
   window.openModal = openModal;
 
-  // Ejecutar la prueba
-  probarConexion();
-    // Estado local de la aplicación
-    let transacciones = [];
-    let currentUser = null;
-    let unsubscribeSync = null;
-    let editingId = null;
-    let pendingDeleteId = null;
+  let transacciones = [];
+  let currentUser = null;
+  let unsubscribeSync = null;
+  let editingId = null;
+  let pendingDeleteId = null;
 
-    // Formato de Moneda y Fecha
-    const formatoMoneda = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2
-    });
+  const formatoMoneda = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+  });
 
-    const formatoFecha = (fechaStr) => {
-        const opciones = { year: 'numeric', month: 'short', day: 'numeric' };
-        const fecha = new Date(fechaStr + 'T12:00:00');
-        return fecha.toLocaleDateString('es-ES', opciones);
-    };
+  const formatoFecha = (fechaStr) => {
+      const opciones = { year: 'numeric', month: 'short', day: 'numeric' };
+      const fecha = new Date(fechaStr + 'T12:00:00');
+      return fecha.toLocaleDateString('es-ES', opciones);
+  };
 
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        
-        let bgColor = 'bg-blue-600';
-        let icon = 'fa-info-circle';
-        if (type === 'success') {
-            bgColor = 'bg-green-600';
-            icon = 'fa-check-circle';
-        } else if (type === 'error') {
-            bgColor = 'bg-red-600';
-            icon = 'fa-exclamation-circle';
-        } else if (type === 'warning') {
-            bgColor = 'bg-amber-500';
-            icon = 'fa-exclamation-triangle';
-        }
+  function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let bgColor = 'bg-blue-600';
+      let icon = 'fa-info-circle';
+      if (type === 'success') {
+          bgColor = 'bg-green-600';
+          icon = 'fa-check-circle';
+      } else if (type === 'error') {
+          bgColor = 'bg-red-600';
+          icon = 'fa-exclamation-circle';
+      } else if (type === 'warning') {
+          bgColor = 'bg-amber-500';
+          icon = 'fa-exclamation-triangle';
+      }
 
-        toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm transition-all duration-300 transform translate-y-2 opacity-0 font-medium`;
-        toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
-        
-        container.appendChild(toast);
-        
-        // Efecto fade-in
-        setTimeout(() => {
-            toast.classList.remove('translate-y-2', 'opacity-0');
-        }, 10);
+      toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm transition-all duration-300 transform translate-y-2 opacity-0 font-medium`;
+      toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+          toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
 
-        // Auto remoción
-        setTimeout(() => {
-            toast.classList.add('opacity-0', 'scale-95');
-            setTimeout(() => {
-                toast.remove();
-            }, 300);
-        }, 4000);
-    }
+      setTimeout(() => {
+          toast.classList.add('opacity-0', 'scale-95');
+          setTimeout(() => {
+              toast.remove();
+          }, 300);
+      }, 4000);
+  }
 
-    window.copyUserId = function() {
-        const text = document.getElementById('user-id-display').textContent;
-        const input = document.createElement('input');
-        input.value = text;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        showToast("¡ID de usuario copiado al portapapeles!", "success");
-    };
+  window.copyUserId = function() {
+      const text = document.getElementById('user-id-display').textContent;
+      const input = document.createElement('input');
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      showToast("¡ID de usuario copiado al portapapeles!", "success");
+  };
 
-    function renderizarApp() {
-        // Ordenar transacciones por fecha de manera cronológica ascendente
-        transacciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  function renderizarApp() {
+      transacciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-        const tablaBody = document.getElementById('tabla-body');
-        const emptyState = document.getElementById('empty-state');
-        const totalEntradasEl = document.getElementById('total-entradas');
-        const totalSalidasEl = document.getElementById('total-salidas');
-        const saldoActualEl = document.getElementById('saldo-actual');
+      const tablaBody = document.getElementById('tabla-body');
+      const emptyState = document.getElementById('empty-state');
+      const totalEntradasEl = document.getElementById('total-entradas');
+      const totalSalidasEl = document.getElementById('total-salidas');
+      const saldoActualEl = document.getElementById('saldo-actual');
 
-        tablaBody.innerHTML = '';
-        let totalEntradas = 0;
-        let totalSalidas = 0;
-        let saldoAcumulado = 0;
+      tablaBody.innerHTML = '';
+      let totalEntradas = 0;
+      let totalSalidas = 0;
+      let saldoAcumulado = 0;
 
-        if (transacciones.length === 0) {
-            emptyState.classList.remove('hidden');
-            emptyState.innerHTML = `
-                <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
-                <p>No hay registros guardados. ¡Agrega una nueva transacción para comenzar!</p>
-            `;
-        } else {
-            emptyState.classList.add('hidden');
+      if (transacciones.length === 0) {
+          emptyState.classList.remove('hidden');
+          emptyState.innerHTML = `
+              <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+              <p>No hay registros guardados. ¡Agrega una nueva transacción para comenzar!</p>
+          `;
+      } else {
+          emptyState.classList.add('hidden');
 
-            transacciones.forEach((t) => {
-                if (t.tipo === 'entrada') {
-                    totalEntradas += t.monto;
-                    saldoAcumulado += t.monto;
-                } else {
-                    totalSalidas += t.monto;
-                    saldoAcumulado -= t.monto;
-                }
+          transacciones.forEach((t) => {
+              if (t.tipo === 'entrada') {
+                  totalEntradas += t.monto;
+                  saldoAcumulado += t.monto;
+              } else {
+                  totalSalidas += t.monto;
+                  saldoAcumulado -= t.monto;
+              }
 
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-gray-50 transition-colors';
-                
-                const textoEntrada = t.tipo === 'entrada' ? `<span class="text-green-600 font-medium">${formatoMoneda.format(t.monto)}</span>` : '-';
-                const textoSalida = t.tipo === 'salida' ? `<span class="text-red-600 font-medium">${formatoMoneda.format(t.monto)}</span>` : '-';
-                const colorSaldo = saldoAcumulado >= 0 ? 'text-gray-900' : 'text-red-600';
+              const tr = document.createElement('tr');
+              tr.className = 'hover:bg-gray-50 transition-colors';
+              
+              const textoEntrada = t.tipo === 'entrada' ? `<span class="text-green-600 font-medium">${formatoMoneda.format(t.monto)}</span>` : '-';
+              const textoSalida = t.tipo === 'salida' ? `<span class="text-red-600 font-medium">${formatoMoneda.format(t.monto)}</span>` : '-';
+              const colorSaldo = saldoAcumulado >= 0 ? 'text-gray-900' : 'text-red-600';
 
-                tr.innerHTML = `
-                    <td class="px-6 py-4 text-gray-500">${formatoFecha(t.fecha)}</td>
-                    <td class="px-6 py-4 font-medium text-gray-800">${t.detalle}</td>
-                    <td class="px-6 py-4 text-right">${textoEntrada}</td>
-                    <td class="px-6 py-4 text-right">${textoSalida}</td>
-                    <td class="px-6 py-4 text-right font-bold ${colorSaldo}">${formatoMoneda.format(saldoAcumulado)}</td>
-                    <td class="px-6 py-4 text-center no-print">
-                        <div class="flex items-center justify-center gap-3">
-                            <button onclick="editarTransaccion('${t.id}')" class="text-gray-400 hover:text-blue-500 transition-colors" title="Editar registro">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="confirmarEliminar('${t.id}')" class="text-gray-400 hover:text-red-500 transition-colors" title="Eliminar registro">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tablaBody.appendChild(tr);
-            });
-        }
+              tr.innerHTML = `
+                  <td class="px-6 py-4 text-gray-500">${formatoFecha(t.fecha)}</td>
+                  <td class="px-6 py-4 font-medium text-gray-800">${t.detalle}</td>
+                  <td class="px-6 py-4 text-right">${textoEntrada}</td>
+                  <td class="px-6 py-4 text-right">${textoSalida}</td>
+                  <td class="px-6 py-4 text-right font-bold ${colorSaldo}">${formatoMoneda.format(saldoAcumulado)}</td>
+                  <td class="px-6 py-4 text-center no-print">
+                      <div class="flex items-center justify-center gap-3">
+                          <button onclick="editarTransaccion('${t.id}')" class="text-gray-400 hover:text-blue-500 transition-colors" title="Editar registro">
+                              <i class="fas fa-edit"></i>
+                          </button>
+                          <button onclick="confirmarEliminar('${t.id}')" class="text-gray-400 hover:text-red-500 transition-colors" title="Eliminar registro">
+                              <i class="fas fa-trash-alt"></i>
+                          </button>
+                      </div>
+                  </td>
+              `;
+              tablaBody.appendChild(tr);
+          });
+      }
 
-        totalEntradasEl.textContent = formatoMoneda.format(totalEntradas);
-        totalSalidasEl.textContent = formatoMoneda.format(totalSalidas);
-        saldoActualEl.textContent = formatoMoneda.format(saldoAcumulado);
-        
-        if (saldoAcumulado < 0) {
-            saldoActualEl.classList.remove('text-blue-600');
-            saldoActualEl.classList.add('text-red-600');
-        } else {
-            saldoActualEl.classList.remove('text-red-600');
-            saldoActualEl.classList.add('text-blue-600');
-        }
-    }
+      totalEntradasEl.textContent = formatoMoneda.format(totalEntradas);
+      totalSalidasEl.textContent = formatoMoneda.format(totalSalidas);
+      saldoActualEl.textContent = formatoMoneda.format(saldoAcumulado);
+      
+      if (saldoAcumulado < 0) {
+          saldoActualEl.classList.remove('text-blue-600');
+          saldoActualEl.classList.add('text-red-600');
+      } else {
+          saldoActualEl.classList.remove('text-red-600');
+          saldoActualEl.classList.add('text-blue-600');
+      }
+  }
 
-    function setupRealtimeSync(userId) {
-        // RULE 1: Siga estrictamente la ruta para datos privados
-        const colRef = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
-        
-        // Desconectar cualquier suscripción anterior
-        if (unsubscribeSync) {
-            unsubscribeSync();
-        }
+  function setupRealtimeSync(userId) {
+      const colRef = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+      
+      if (unsubscribeSync) {
+          unsubscribeSync();
+      }
 
-        // RULE 2: No utilizar filtros compuestos (orderBy o where en la consulta de red). Sincronizar y filtrar en JS.
-        unsubscribeSync = onSnapshot(colRef, async (snapshot) => {
-            let items = [];
-            snapshot.forEach((doc) => {
-                items.push({ id: doc.id, ...doc.data() });
-            });
+      unsubscribeSync = onSnapshot(colRef, async (snapshot) => {
+          let items = [];
+          snapshot.forEach((doc) => {
+              items.push({ id: doc.id, ...doc.data() });
+          });
 
-            // Si es un usuario nuevo, migramos y poblamos por primera vez con los datos de las libretas de Novasol
-            if (items.length === 0) {
-                await poblarDatosIniciales(userId);
-                return; // El listener onSnapshot volverá a dispararse automáticamente
-            }
+          if (items.length === 0) {
+              await poblarDatosIniciales(userId);
+              return; 
+          }
 
-            transacciones = items;
-            renderizarApp();
-            
-            // Actualizar interfaz del estado de conexión
-            document.getElementById('status-dot').className = "w-2.5 h-2.5 rounded-full bg-green-500";
-            document.getElementById('status-text').textContent = "Sincronizado";
-            document.getElementById('status-text').className = "font-medium text-green-600";
-        }, (error) => {
-            console.error("Error sincronizando base de datos: ", error);
-            showToast("Error de conexión con la base de datos.", "error");
-            document.getElementById('status-dot').className = "w-2.5 h-2.5 rounded-full bg-red-500";
-            document.getElementById('status-text').textContent = "Sin Conexión";
-            document.getElementById('status-text').className = "font-medium text-red-600";
-        });
-    }
+          transacciones = items;
+          renderizarApp();
+          
+          document.getElementById('status-dot').className = "w-2.5 h-2.5 rounded-full bg-green-500";
+          document.getElementById('status-text').textContent = "Sincronizado";
+          document.getElementById('status-text').className = "font-medium text-green-600";
+      }, (error) => {
+          console.error("Error sincronizando base de datos: ", error);
+          showToast("Error de conexión con la base de datos.", "error");
+          document.getElementById('status-dot').className = "w-2.5 h-2.5 rounded-full bg-red-500";
+          document.getElementById('status-text').textContent = "Sin Conexión";
+          document.getElementById('status-text').className = "font-medium text-red-600";
+      });
+  }
 
-    async function poblarDatosIniciales(userId) {
-        showToast("Inicializando base de datos en la nube...", "warning");
-        const colRef = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
-        
-        // Datos extraídos de estado cuenta 1.pdf y estado cuenta 2.pdf
-        const defaultData = [
-            { fecha: '2026-05-23', tipo: 'entrada', monto: 1000.00, detalle: 'Capital Inicial' },
-            { fecha: '2026-05-27', tipo: 'salida', monto: 152.79, detalle: 'Herramientas - Tarjeta' },
-            { fecha: '2026-06-07', tipo: 'salida', monto: 63.36, detalle: 'Hidro Lavadora' },
-            { fecha: '2026-06-11', tipo: 'salida', monto: 120.00, detalle: 'Host. Web' },
-            { fecha: '2026-06-12', tipo: 'salida', monto: 50.00, detalle: 'Abono local' },
-            { fecha: '2026-06-17', tipo: 'salida', monto: 35.00, detalle: 'Abono Uniforme' },
-            { fecha: '2026-06-18', tipo: 'salida', monto: 24.25, detalle: 'Cancela Uniforme' },
-            { fecha: '2026-06-20', tipo: 'salida', monto: 33.00, detalle: 'Baner' },
-            { fecha: '2026-06-21', tipo: 'salida', monto: 8.10, detalle: 'Viatico Combustible (Técnico)' },
-            { fecha: '2026-06-27', tipo: 'salida', monto: 45.50, detalle: 'Panel Solar 100W' },
-            { fecha: '2026-07-01', tipo: 'salida', monto: 4.85, detalle: 'Elaboración Tarjetas' },
-            { fecha: '2026-07-02', tipo: 'salida', monto: 8.60, detalle: 'Elaboración Calcomanás' },
-            { fecha: '2026-07-08', tipo: 'salida', monto: 19.00, detalle: 'Sello Automatico (Cancelado)' },
-            { fecha: '2026-07-08', tipo: 'salida', monto: 39.00, detalle: 'Elaboración de facturas 200 unidades' },
-            { fecha: '2026-07-16', tipo: 'salida', monto: 13.50, detalle: 'Pago impuesto DGI mes de Junio' },
-            { fecha: '2026-07-17', tipo: 'salida', monto: 2.50, detalle: 'Recarga claro (57393200)' }
-        ];
+  async function poblarDatosIniciales(userId) {
+      showToast("Inicializando base de datos en la nube...", "warning");
+      const colRef = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+      
+      const defaultData = [
+          { fecha: '2026-05-23', tipo: 'entrada', monto: 1000.00, detalle: 'Capital Inicial' },
+          { fecha: '2026-05-27', tipo: 'salida', monto: 152.79, detalle: 'Herramientas - Tarjeta' },
+          { fecha: '2026-06-07', tipo: 'salida', monto: 63.36, detalle: 'Hidro Lavadora' },
+          { fecha: '2026-06-11', tipo: 'salida', monto: 120.00, detalle: 'Host. Web' },
+          { fecha: '2026-06-12', tipo: 'salida', monto: 50.00, detalle: 'Abono local' },
+          { fecha: '2026-06-17', tipo: 'salida', monto: 35.00, detalle: 'Abono Uniforme' },
+          { fecha: '2026-06-18', tipo: 'salida', monto: 24.25, detalle: 'Cancela Uniforme' },
+          { fecha: '2026-06-20', tipo: 'salida', monto: 33.00, detalle: 'Baner' },
+          { fecha: '2026-06-21', tipo: 'salida', monto: 8.10, detalle: 'Viatico Combustible (Técnico)' },
+          { fecha: '2026-06-27', tipo: 'salida', monto: 45.50, detalle: 'Panel Solar 100W' },
+          { fecha: '2026-07-01', tipo: 'salida', monto: 4.85, detalle: 'Elaboración Tarjetas' },
+          { fecha: '2026-07-02', tipo: 'salida', monto: 8.60, detalle: 'Elaboración Calcomanás' },
+          { fecha: '2026-07-08', tipo: 'salida', monto: 19.00, detalle: 'Sello Automatico (Cancelado)' },
+          { fecha: '2026-07-08', tipo: 'salida', monto: 39.00, detalle: 'Elaboración de facturas 200 unidades' },
+          { fecha: '2026-07-16', tipo: 'salida', monto: 13.50, detalle: 'Pago impuesto DGI mes de Junio' },
+          { fecha: '2026-07-17', tipo: 'salida', monto: 2.50, detalle: 'Recarga claro (57393200)' }
+      ];
 
-        try {
-            for (const item of defaultData) {
-                // Generar un ID único de documento autogenerado en la subcolección
-                const docRef = doc(colRef);
-                await setDoc(docRef, item);
-            }
-            showToast("¡Base de datos lista con tus apuntes!", "success");
-        } catch (err) {
-            console.error("Error poblando datos iniciales: ", err);
-            showToast("Error configurando tu espacio de trabajo.", "error");
-        }
-    }
+      try {
+          for (const item of defaultData) {
+              const docRef = doc(colRef);
+              await setDoc(docRef, item);
+          }
+          showToast("¡Base de datos lista con tus apuntes!", "success");
+      } catch (err) {
+          console.error("Error poblando datos iniciales: ", err);
+          showToast("Error configurando tu espacio de trabajo.", "error");
+      }
+  }
 
-    async function iniciarAutenticacion() {
-        try {
-            if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
-            } else {
-                await signInAnonymously(auth);
-            }
-        } catch (error) {
-            console.error("Error en flujo de autenticación: ", error);
-            showToast("No se pudo iniciar sesión en la base de datos.", "error");
-        }
-    }
+  async function iniciarAutenticacion() {
+      try {
+          if (typeof initialAuthToken !== 'undefined' && initialAuthToken) {
+              await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+              await signInAnonymously(auth);
+          }
+      } catch (error) {
+          console.error("Error en flujo de autenticación: ", error);
+          showToast("No se pudo iniciar sesión en la base de datos.", "error");
+      }
+  }
 
-    // Suscribirse a cambios en el estado de autenticación
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            currentUser = user;
-            document.getElementById('user-id-display').textContent = user.uid;
-            showToast("Sesión iniciada de forma segura", "success");
-            setupRealtimeSync(user.uid);
-        } else {
-            currentUser = null;
-            document.getElementById('user-id-display').textContent = "No autenticado";
-            if (unsubscribeSync) unsubscribeSync();
-        }
-    });
+  window.closeModal = function() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('transaccion-form').reset();
+      editingId = null;
+  };
 
-    window.openModal = function() {
-        editingId = null;
-        document.getElementById('modal-titulo').textContent = 'Nueva Transacción';
-        document.getElementById('btn-guardar').textContent = 'Guardar Transacción';
-        document.getElementById('form-fecha').valueAsDate = new Date();
-        document.getElementById('modal').classList.remove('hidden');
-        document.getElementById('form-detalle').focus();
-    };
+  window.editarTransaccion = function(id) {
+      const t = transacciones.find(item => item.id === id);
+      if (!t) return;
+      
+      editingId = id;
+      document.getElementById('modal-titulo').textContent = 'Editar Transacción';
+      document.getElementById('btn-guardar').textContent = 'Guardar Cambios';
+      
+      document.getElementById('form-fecha').value = t.fecha;
+      document.querySelector(`input[name="tipo"][value="${t.tipo}"]`).checked = true;
+      document.getElementById('form-detalle').value = t.detalle;
+      document.getElementById('form-monto').value = t.monto;
+      
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('form-detalle').focus();
+  };
 
-    window.closeModal = function() {
-        document.getElementById('modal').classList.add('hidden');
-        document.getElementById('transaccion-form').reset();
-        editingId = null;
-    };
+  document.getElementById('transaccion-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      if (!currentUser) {
+          showToast("Error: No estás autenticado con la base de datos.", "error");
+          return;
+      }
 
-    window.editarTransaccion = function(id) {
-        const t = transacciones.find(item => item.id === id);
-        if (!t) return;
-        
-        editingId = id;
-        document.getElementById('modal-titulo').textContent = 'Editar Transacción';
-        document.getElementById('btn-guardar').textContent = 'Guardar Cambios';
-        
-        document.getElementById('form-fecha').value = t.fecha;
-        document.querySelector(`input[name="tipo"][value="${t.tipo}"]`).checked = true;
-        document.getElementById('form-detalle').value = t.detalle;
-        document.getElementById('form-monto').value = t.monto;
-        
-        document.getElementById('modal').classList.remove('hidden');
-        document.getElementById('form-detalle').focus();
-    };
+      const fecha = document.getElementById('form-fecha').value;
+      const tipo = document.querySelector('input[name="tipo"]:checked').value;
+      const detalle = document.getElementById('form-detalle').value;
+      const monto = parseFloat(document.getElementById('form-monto').value);
 
-    document.getElementById('transaccion-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // RULE 3: Guardar operaciones solo si el usuario está autenticado
-        if (!currentUser) {
-            showToast("Error: No estás autenticado con la base de datos.", "error");
-            return;
-        }
+      if (!fecha || !detalle || isNaN(monto)) return;
 
-        const fecha = document.getElementById('form-fecha').value;
-        const tipo = document.querySelector('input[name="tipo"]:checked').value;
-        const detalle = document.getElementById('form-detalle').value;
-        const monto = parseFloat(document.getElementById('form-monto').value);
+      const btn = document.getElementById('btn-guardar');
+      btn.disabled = true;
+      btn.textContent = "Procesando...";
 
-        if (!fecha || !detalle || isNaN(monto)) return;
+      const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
 
-        // Deshabilitar botón durante el envío
-        const btn = document.getElementById('btn-guardar');
-        btn.disabled = true;
-        btn.textContent = "Procesando...";
+      try {
+          if (editingId) {
+              const docRef = doc(colRef, editingId);
+              await setDoc(docRef, { fecha, tipo, detalle, monto });
+              showToast("Transacción modificada con éxito", "success");
+          } else {
+              const docRef = doc(colRef);
+              await setDoc(docRef, { fecha, tipo, detalle, monto });
+              showToast("Nueva transacción añadida", "success");
+          }
+          closeModal();
+      } catch (error) {
+          console.error("Error al persistir registro: ", error);
+          showToast("Error de conexión al guardar los datos.", "error");
+      } finally {
+          btn.disabled = false;
+      }
+  });
 
-        const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
+  window.confirmarEliminar = function(id) {
+      pendingDeleteId = id;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+  };
 
-        try {
-            if (editingId) {
-                // Actualizar documento existente
-                const docRef = doc(colRef, editingId);
-                await setDoc(docRef, { fecha, tipo, detalle, monto });
-                showToast("Transacción modificada con éxito", "success");
-            } else {
-                // Agregar un nuevo documento con ID autogenerado
-                const docRef = doc(colRef);
-                await setDoc(docRef, { fecha, tipo, detalle, monto });
-                showToast("Nueva transacción añadida", "success");
-            }
-            closeModal();
-        } catch (error) {
-            console.error("Error al persistir registro: ", error);
-            showToast("Error de conexión al guardar los datos.", "error");
-        } finally {
-            btn.disabled = false;
-        }
-    });
+  window.closeConfirmModal = function() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      pendingDeleteId = null;
+  };
 
-    window.confirmarEliminar = function(id) {
-        pendingDeleteId = id;
-        document.getElementById('confirm-modal').classList.remove('hidden');
-    };
+  document.getElementById('btn-confirm-delete').addEventListener('click', async function() {
+      if (!pendingDeleteId || !currentUser) return;
 
-    window.closeConfirmModal = function() {
-        document.getElementById('confirm-modal').classList.add('hidden');
-        pendingDeleteId = null;
-    };
+      const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
+      const docRef = doc(colRef, pendingDeleteId);
 
-    document.getElementById('btn-confirm-delete').addEventListener('click', async function() {
-        if (!pendingDeleteId || !currentUser) return;
+      try {
+          await deleteDoc(docRef);
+          showToast("Registro eliminado con éxito", "success");
+      } catch (error) {
+          console.error("Error al eliminar documento: ", error);
+          showToast("No se pudo eliminar el registro de la nube.", "error");
+      } finally {
+          closeConfirmModal();
+      }
+  });
 
-        const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
-        const docRef = doc(colRef, pendingDeleteId);
+  document.getElementById('modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+  });
+  document.getElementById('confirm-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeConfirmModal();
+  });
 
-        try {
-            await deleteDoc(docRef);
-            showToast("Registro eliminado con éxito", "success");
-        } catch (error) {
-            console.error("Error al eliminar documento: ", error);
-            showToast("No se pudo eliminar el registro de la nube.", "error");
-        } finally {
-            closeConfirmModal();
-        }
-    });
-
-    // Cerrar modales si se hace clic afuera del contenido
-    document.getElementById('modal').addEventListener('click', function(e) {
-        if (e.target === this) closeModal();
-    });
-    document.getElementById('confirm-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeConfirmModal();
-    });
-
-    // Iniciar el flujo completo en la carga inicial de la ventana
-    window.onload = function() {
-        iniciarAutenticacion();
-    };
+  window.onload = function() {
+      iniciarAutenticacion();
+  };
 </script>
 </body>
 </html>
